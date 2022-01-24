@@ -10,6 +10,7 @@ name = "sborl"
 description = "Schema-based Operator Relation Libraries"
 readme = "README.md"
 dynamic = ["version"]
+requires-python = ">=3.8"
 dependencies = [
     "jsonschema",
     "ops",

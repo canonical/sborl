@@ -1,7 +1,7 @@
 # Copyright 2022 Canonical Ltd.
 # See LICENSE file for licensing details.
 import logging
-from functools import cache, cached_property
+from functools import cached_property
 from pathlib import Path
 from typing import Dict, Union
 
@@ -20,6 +20,14 @@ from ops.model import (
 
 from . import errors
 from .events import EndpointWrapperEvents
+
+try:
+    from functools import cache
+except ImportError:
+    # create shim for functools.cache in 3.8
+    from functools import lru_cache
+
+    cache = lru_cache(maxsize=None)
 
 
 log = logging.getLogger(__name__)
