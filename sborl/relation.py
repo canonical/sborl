@@ -68,19 +68,19 @@ class EndpointWrapper(Object):
 
     on = EndpointWrapperEvents()
 
-    def __init__(self, charm: CharmBase, relation_name: str = None):
+    def __init__(self, charm: CharmBase, endpoint: str = None):
         """Constructor for EndpointWrapper.
 
         Args:
             charm: The charm that is instantiating the library.
-            relation_name: The name of the relation endpoint to bind to
+            endpoint: The name of the relation endpoint to bind to
                 (defaults to the INTERFACE).
         """
-        if not relation_name:
-            relation_name = self.INTERFACE
-        super().__init__(charm, f"relation-{relation_name}")
+        if not endpoint:
+            endpoint = self.INTERFACE
+        super().__init__(charm, f"relation-{endpoint}")
         self.charm = charm
-        self.relation_name = relation_name
+        self.endpoint = endpoint
         self.auto_data = getattr(self, "auto_data", None)
         self.ignored_fields = getattr(
             self,
@@ -102,7 +102,7 @@ class EndpointWrapper(Object):
         self._validate_schema()
         self._validate_relation_meta()
 
-        rel_events = charm.on[relation_name]
+        rel_events = charm.on[endpoint]
         self.framework.observe(rel_events.relation_created, self._handle_relation)
         self.framework.observe(rel_events.relation_changed, self._handle_relation)
         self.framework.observe(rel_events.relation_broken, self._handle_relation_broken)
@@ -135,9 +135,9 @@ class EndpointWrapper(Object):
         # This should really be done as a build-time hook, if that were possible.
         cls_name = type(self).__name__
         assert (
-            self.relation_name in self.charm.meta.relations
-        ), f"Relation {self.relation_name} not found"
-        rel_meta = self.charm.meta.relations[self.relation_name]
+            self.endpoint in self.charm.meta.relations
+        ), f"Relation {self.endpoint} not found"
+        rel_meta = self.charm.meta.relations[self.endpoint]
         assert (
             self.ROLE == rel_meta.role.name
         ), f"{cls_name} must be used on a '{self.ROLE}' relation"
@@ -214,7 +214,7 @@ class EndpointWrapper(Object):
     @cached_property
     def relations(self):
         """The list of Relation instances associated with this endpoint."""
-        return list(self.charm.model.relations[self.relation_name])
+        return list(self.charm.model.relations[self.endpoint])
 
     @cache
     def get_status(self, relation):

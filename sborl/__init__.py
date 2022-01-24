@@ -1,9 +1,6 @@
 # Copyright 2022 Canonical Ltd.
 # See LICENSE file for licensing details.
-"""Library for managing Juju interfaces based on schemas.
-"""
-
-__version__ = "0.0.1"
+__version__ = "0.0.2"
 
 # flake8: noqa: F401,F402
 

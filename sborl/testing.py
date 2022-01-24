@@ -71,16 +71,16 @@ class MockRemoteRelationMixin:
 
     @property
     def relation(self):
-        return self.harness.model.get_relation(self.relation_name, self.relation_id)
+        return self.harness.model.get_relation(self.endpoint, self.relation_id)
 
     @property
     def _is_leader(self):
         return True
 
-    def relate(self, relation_name: str = None):
-        if not relation_name:
-            relation_name = self.relation_name
-        self.relation_id = self.harness.add_relation(relation_name, self.app_name)
+    def relate(self, endpoint: str = None):
+        if not endpoint:
+            endpoint = self.endpoint
+        self.relation_id = self.harness.add_relation(endpoint, self.app_name)
         self._send_versions(self.relation)
         self._clear_caches()
         self.add_unit()
