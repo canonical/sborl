@@ -1,5 +1,6 @@
 # Copyright 2022 Canonical Ltd.
 # See LICENSE file for licensing details.
+from functools import cache
 from textwrap import dedent
 
 import pytest
@@ -66,7 +67,10 @@ class Requirer(EndpointWrapper):
 
 
 class MockRequirer(testing.MockRemoteRelationMixin, Requirer):
-    pass
+    @cache
+    def is_available(self, relation = None):
+        # test masked superclass cache disabling
+        return super().is_available(relation)
 
 
 class RequirerCharm(CharmBase):

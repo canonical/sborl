@@ -54,12 +54,17 @@ class MockRemoteRelationMixin:
         is_ew = lambda v: isinstance(v, EndpointWrapper)  # noqa: E731
         is_cp = lambda v: isinstance(v, cached_property)  # noqa: E731
         is_cf = lambda v: hasattr(v, "cache_clear")  # noqa: E731
-        for _, instance in [(None, self)] + getmembers(self.harness.charm, is_ew):
-            for attr, prop in getmembers(type(instance), lambda v: is_cp(v) or is_cf(v)):
+        classes = [
+            EndpointWrapper,
+            type(self),
+            *[type(instance) for _, instance in getmembers(self.harness.charm, is_ew)],
+        ]
+        for cls in classes:
+            for attr, prop in getmembers(cls, lambda v: is_cp(v) or is_cf(v)):
                 if is_cp(prop):
-                    setattr(type(instance), attr, property(prop.func))
+                    setattr(cls, attr, property(prop.func))
                 else:
-                    setattr(type(instance), attr, prop.__wrapped__)
+                    setattr(cls, attr, prop.__wrapped__)
 
     @property
     def app_name(self):
@@ -103,7 +108,9 @@ class MockRemoteRelationMixin:
                 entity_data._is_mutable = lambda: True
         backend = self.harness._backend
         app_name, unit_name = backend.app_name, backend.unit_name
-        backend.app_name, backend.unit_name = self.app.name, getattr(self.unit, "name", None)
+        backend.app_name, backend.unit_name = self.app.name, getattr(
+            self.unit, "name", None
+        )
         try:
             yield
         finally:
