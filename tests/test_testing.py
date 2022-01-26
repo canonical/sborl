@@ -2,6 +2,7 @@
 # See LICENSE file for licensing details.
 from textwrap import dedent
 
+import pytest
 from ops.charm import CharmBase
 from ops.testing import Harness
 
@@ -32,24 +33,43 @@ _SCHEMA = {
 }
 
 
-class MockRequirer(EndpointWrapper):
-    ROLE = "requires"
-    INTERFACE = "mock-rel"
-    SCHEMA = _SCHEMA
-    LIMIT = 1
-
-    def __init__(self, *args):
-        super().__init__(*args)
-        self.auto_data = {self.charm.unit: {"request": "foo"}}
-
-
-class MockProvider(testing.MockRemoteRelationMixin, EndpointWrapper):
+class Provider(EndpointWrapper):
     ROLE = "provides"
     INTERFACE = "mock-rel"
     SCHEMA = _SCHEMA
 
 
-class MockRequirerCharm(CharmBase):
+class MockProvider(testing.MockRemoteRelationMixin, Provider):
+    pass
+
+
+class ProviderCharm(CharmBase):
+    META = dedent(
+        """\
+        name: mock-rel-local
+        provides:
+          mock-rel:
+            interface: mock-rel
+        """
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.rel = Provider(self)
+
+
+class Requirer(EndpointWrapper):
+    ROLE = "requires"
+    INTERFACE = "mock-rel"
+    SCHEMA = _SCHEMA
+    LIMIT = 1
+
+
+class MockRequirer(testing.MockRemoteRelationMixin, Requirer):
+    pass
+
+
+class RequirerCharm(CharmBase):
     META = dedent(
         """\
         name: mock-rel-local
@@ -62,27 +82,56 @@ class MockRequirerCharm(CharmBase):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.rel = MockRequirer(self)
+        self.rel = Requirer(self)
 
 
-def test_mrrm(monkeypatch):
-    harness = Harness(MockRequirerCharm, meta=MockRequirerCharm.META)
-    provider = MockProvider(harness)
+@pytest.mark.parametrize("role", ["provides", "requires"])
+def test_mrrm(role):
+    if role == "provides":
+        harness = Harness(ProviderCharm, meta=ProviderCharm.META)
+        harness.begin_with_initial_hooks()
+        provider = harness.charm.rel
+        requirer = MockRequirer(harness)
+        local, remote = provider, requirer
+    elif role == "requires":
+        harness = Harness(RequirerCharm, meta=RequirerCharm.META)
+        harness.begin_with_initial_hooks()
+        provider = MockProvider(harness)
+        requirer = harness.charm.rel
+        local, remote = requirer, provider
 
-    harness.set_leader(False)
-    harness.begin_with_initial_hooks()
+    assert not provider.is_available()
+    assert not provider.is_ready()
+    assert not requirer.is_available()
+    assert not requirer.is_ready()
 
-    assert not harness.charm.rel.is_available()
-    assert not harness.charm.rel.is_ready()
+    relation = remote.relate()
+    # mock remote is always leader, so their versions will be sent to the local charm
+    assert local.is_available()
+    assert not local.is_ready()
+    # local charm under test is not leader yet, so its will not be sent to the remote
+    assert not remote.is_available()
+    assert not remote.is_ready()
 
-    relation = provider.relate()
-    assert harness.charm.rel.is_available()
-    assert not harness.charm.rel.is_ready()
+    harness.set_leader(True)
+    assert provider.is_available()
+    assert not provider.is_ready()
+    assert requirer.is_available()
+    assert not requirer.is_ready()
+
+    requirer.wrap(relation, {requirer.unit: {"request": "foo"}})
+    assert provider.is_available()
+    assert provider.is_ready()
+    assert requirer.is_available()
+    assert not requirer.is_ready()
+
     data = provider.unwrap(relation)
-    assert data[harness.charm.unit] == {"request": "foo"}
+    assert data[requirer.unit] == {"request": "foo"}
 
-    provider.wrap(relation, {provider.charm.app: {"response": "bar"}})
-    assert harness.charm.rel.is_available()
-    assert harness.charm.rel.is_ready()
-    data = harness.charm.rel.unwrap(relation)
-    assert data[provider.charm.app] == {"response": "bar"}
+    provider.wrap(relation, {provider.app: {"response": "bar"}})
+    assert provider.is_available()
+    assert provider.is_ready()
+    assert requirer.is_available()
+    assert requirer.is_ready()
+    data = requirer.unwrap(relation)
+    assert data[provider.app] == {"response": "bar"}

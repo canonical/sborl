@@ -117,6 +117,14 @@ class EndpointWrapper(Object):
         self.framework.observe(charm.on.leader_elected, self._handle_upgrade_or_leader)
         self.framework.observe(charm.on.upgrade_charm, self._handle_upgrade_or_leader)
 
+    @property
+    def app(self):
+        return self.charm.app
+
+    @property
+    def unit(self):
+        return self.charm.unit
+
     def _load_schema(self):
         if isinstance(self.SCHEMA, dict):
             return self.SCHEMA
@@ -210,9 +218,9 @@ class EndpointWrapper(Object):
     def _get_entity_schema(
         self, version: Union[int, str], entity: Union[Application, Unit]
     ):
-        if entity is self.charm.app:
+        if entity is self.app:
             return self._schemas[version][self._role].get("app", {})
-        elif entity is self.charm.unit:
+        elif entity is self.unit:
             return self._schemas[version][self._role].get("unit", {})
         elif isinstance(entity, Application):
             return self._schemas[version][self._remote_role].get("app", {})
@@ -273,7 +281,7 @@ class EndpointWrapper(Object):
             return any(
                 data[entity]
                 for entity in data
-                if entity not in (self.charm.app, self.charm.unit)
+                if entity not in (self.app, self.unit)
             )
 
     @cache
@@ -320,13 +328,14 @@ class EndpointWrapper(Object):
 
     @property
     def _is_leader(self):
-        # primarily to aid in testing
-        return self.charm.unit.is_leader()
+        # This is wrapped primarily to aid in testing, so that the
+        # MockRemoteRelationMixin can override it.
+        return self.unit.is_leader()
 
     def _send_versions(self, relation):
         if self._is_leader:
             serialized = yaml.safe_dump(list(self.versions))
-            relation.data[self.charm.app][VERSION_KEY] = serialized
+            relation.data[self.app][VERSION_KEY] = serialized
 
     def _send_auto_data(self, relation):
         if self.auto_data and self.is_available(relation):
@@ -351,7 +360,7 @@ class EndpointWrapper(Object):
         version = self._get_version(relation)
         unwrapped = {}
         for entity, data in relation.data.items():
-            if entity is self.charm.app and not self._is_leader:
+            if entity is self.app and not self._is_leader:
                 unwrapped[entity] = {}
                 continue
             entity_schema = self._get_entity_schema(version, entity)
@@ -386,16 +395,16 @@ class EndpointWrapper(Object):
 
         Example:
 
-                self.wrap(relation, {self.charm.app: {"foo": "bar"}})
+                self.wrap(relation, {self.app: {"foo": "bar"}})
         """
-        if data.get(self.charm.app) and not self._is_leader:
-            raise errors.RelationPermissionError(relation, self.charm.app)
+        if data.get(self.app) and not self._is_leader:
+            raise errors.RelationPermissionError(relation, self.app)
         old_data = self.unwrap(relation)
         version = self._get_version(relation)
         for entity in data:
             if not data[entity]:
                 continue
-            if entity not in (self.charm.app, self.charm.unit):
+            if entity not in (self.app, self.unit):
                 if data[entity] != old_data[entity]:
                     raise errors.RelationPermissionError(relation, entity)
                 continue
