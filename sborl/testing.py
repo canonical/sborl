@@ -6,6 +6,7 @@ from contextlib import contextmanager
 from functools import cached_property
 from inspect import getmembers
 from typing import Dict, Union
+from unittest.mock import patch
 
 from ops.charm import CharmBase, CharmEvents, CharmMeta
 from ops.model import Application, Relation, Unit
@@ -81,10 +82,6 @@ class MockRemoteRelationMixin:
         """The Relation instance, if created."""
         return self.harness.model.get_relation(self.endpoint, self.relation_id)
 
-    @property
-    def _is_leader(self):
-        return True
-
     def relate(self, endpoint: str = None):
         """Create a relation to the charm under test.
 
@@ -98,29 +95,29 @@ class MockRemoteRelationMixin:
         return self.relation
 
     @contextmanager
-    def _remote_relation_set(self, relation: Relation):
-        # Remote relation data normally cannot be written, for obvious reasons.
-        # To force it, we have to make the appropriate buckets are marked as
-        # writable and also make the testing backend think that we're on the
-        # remote side as well.
-        for entity, entity_data in relation.data.items():
-            if getattr(entity, "app", entity) is self.app:
-                entity_data._is_mutable = lambda: True
-        backend = self.harness._backend
-        app_name, unit_name = backend.app_name, backend.unit_name
-        backend.app_name, backend.unit_name = self.app.name, getattr(
-            self.unit, "name", None
-        )
-        try:
-            yield
-        finally:
-            backend.app_name, backend.unit_name = app_name, unit_name
-            for entity, entity_data in relation.data.items():
-                if getattr(entity, "app", entity) is self.app:
-                    entity_data._is_mutable = lambda: False
+    def remote_context(self, relation: Relation):
+        """Temporarily change the context to the remote side of the relation.
+
+        The test runs within the context of the local charm under test.  This
+        means that the relation data on the remote side cannot be written, the
+        app and units references are from the local charm's perspective, etc.
+        This temporarily patches things to behave as if we were running on the
+        remote charm instead.
+        """
+        with patch.multiple(
+            self.harness._backend,
+            app_name=self.app.name,
+            unit_name=getattr(self.unit, "name", None),
+            is_leader=lambda: True,
+        ):
+            with patch.multiple(
+                relation, app=self.harness.charm.app, units={self.harness.charm.unit}
+            ):
+                with patch.object(self.unit, "_is_our_unit", True):
+                    yield
 
     def _send_versions(self, relation: Relation):
-        with self._remote_relation_set(relation):
+        with self.remote_context(relation):
             super()._send_versions(relation)
         # Updating the relation data directly doesn't trigger hooks, so we have
         # to call update_relation_data explicitly to trigger them.
@@ -136,18 +133,29 @@ class MockRemoteRelationMixin:
         self.num_units += 1
 
     def _get_version(self, relation: Relation):
-        # Normally, relation.app and relation.unit are the remote entities, but
-        # we're operating *as* the remote, so we need to fake that perspective
-        # for this call by patching the relation's app.
-        app = relation.app
-        relation.app = self.harness.charm.app
-        try:
+        with self.remote_context(relation):
             return super()._get_version(relation)
-        finally:
-            relation.app = app
+
+    def is_available(self, relation: Relation = None):
+        if relation is None:
+            return any(self.is_available(relation) for relation in self.relations)
+        with self.remote_context(relation):
+            return super().is_available(relation)
+
+    def is_ready(self, relation: Relation = None):
+        if relation is None:
+            return any(self.is_ready(relation) for relation in self.relations)
+        with self.remote_context(relation):
+            return super().is_ready(relation)
+
+    def is_failed(self, relation: Relation = None):
+        if relation is None:
+            return any(self.is_failed(relation) for relation in self.relations)
+        with self.remote_context(relation):
+            return super().is_failed(relation)
 
     def wrap(self, relation: Relation, data: Dict[Union[Application, Unit], dict]):
-        with self._remote_relation_set(relation):
+        with self.remote_context(relation):
             super().wrap(relation, data)
         # Updating the relation data directly doesn't trigger hooks, so we have
         # to call update_relation_data explicitly to trigger them.
@@ -158,3 +166,7 @@ class MockRemoteRelationMixin:
                     self.charm.app.name,
                     dict(relation.data[entity]),
                 )
+
+    def unwrap(self, relation: Relation):
+        with self.remote_context(relation):
+            return super().unwrap(relation)

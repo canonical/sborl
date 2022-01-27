@@ -279,9 +279,7 @@ class EndpointWrapper(Object):
             return False
         else:
             return any(
-                data[entity]
-                for entity in data
-                if entity not in (self.app, self.unit)
+                data[entity] for entity in data if entity not in (self.app, self.unit)
             )
 
     @cache
@@ -326,14 +324,8 @@ class EndpointWrapper(Object):
             self._send_versions(relation)
             self._send_auto_data(relation)
 
-    @property
-    def _is_leader(self):
-        # This is wrapped primarily to aid in testing, so that the
-        # MockRemoteRelationMixin can override it.
-        return self.unit.is_leader()
-
     def _send_versions(self, relation):
-        if self._is_leader:
+        if self.unit.is_leader():
             serialized = yaml.safe_dump(list(self.versions))
             relation.data[self.app][VERSION_KEY] = serialized
 
@@ -360,7 +352,7 @@ class EndpointWrapper(Object):
         version = self._get_version(relation)
         unwrapped = {}
         for entity, data in relation.data.items():
-            if entity is self.app and not self._is_leader:
+            if entity is self.app and not self.unit.is_leader():
                 unwrapped[entity] = {}
                 continue
             entity_schema = self._get_entity_schema(version, entity)
@@ -397,7 +389,7 @@ class EndpointWrapper(Object):
 
                 self.wrap(relation, {self.app: {"foo": "bar"}})
         """
-        if data.get(self.app) and not self._is_leader:
+        if data.get(self.app) and not self.unit.is_leader():
             raise errors.RelationPermissionError(relation, self.app)
         old_data = self.unwrap(relation)
         version = self._get_version(relation)

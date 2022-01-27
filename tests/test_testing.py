@@ -6,9 +6,7 @@ from textwrap import dedent
 import pytest
 from ops.charm import CharmBase
 from ops.testing import Harness
-
 from sborl import EndpointWrapper, testing
-
 
 _SCHEMA = {
     "v1": {
@@ -68,7 +66,7 @@ class Requirer(EndpointWrapper):
 
 class MockRequirer(testing.MockRemoteRelationMixin, Requirer):
     @cache
-    def is_available(self, relation = None):
+    def is_available(self, relation=None):
         # test masked superclass cache disabling
         return super().is_available(relation)
 
