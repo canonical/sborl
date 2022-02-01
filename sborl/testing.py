@@ -29,7 +29,7 @@ class MockRemoteRelationMixin:
             meta = CharmMeta(
                 {
                     self.ROLE: {
-                        self.INTERFACE: {
+                        self._default_endpoint: {
                             "role": self.ROLE,
                             "interface": self.INTERFACE,
                             "limit": self.LIMIT,

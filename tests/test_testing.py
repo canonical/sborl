@@ -1,12 +1,12 @@
 # Copyright 2022 Canonical Ltd.
 # See LICENSE file for licensing details.
-from functools import cache
 from textwrap import dedent
 
 import pytest
 from ops.charm import CharmBase
 from ops.testing import Harness
 from sborl import EndpointWrapper, testing
+from sborl.relation import cache
 
 _SCHEMA = {
     "v1": {
@@ -34,7 +34,7 @@ _SCHEMA = {
 
 class Provider(EndpointWrapper):
     ROLE = "provides"
-    INTERFACE = "mock-rel"
+    INTERFACE = "mock_rel"
     SCHEMA = _SCHEMA
 
 
@@ -48,7 +48,7 @@ class ProviderCharm(CharmBase):
         name: mock-rel-local
         provides:
           mock-rel:
-            interface: mock-rel
+            interface: mock_rel
         """
     )
 
@@ -59,7 +59,7 @@ class ProviderCharm(CharmBase):
 
 class Requirer(EndpointWrapper):
     ROLE = "requires"
-    INTERFACE = "mock-rel"
+    INTERFACE = "mock_rel"
     SCHEMA = _SCHEMA
     LIMIT = 1
 
@@ -77,7 +77,7 @@ class RequirerCharm(CharmBase):
         name: mock-rel-local
         requires:
           mock-rel:
-            interface: mock-rel
+            interface: mock_rel
             limit: 1
         """
     )

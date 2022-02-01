@@ -82,10 +82,11 @@ class EndpointWrapper(Object):
         Args:
             charm: The charm that is instantiating the library.
             endpoint: The name of the relation endpoint to bind to
-                (defaults to the INTERFACE).
+                (defaults to the INTERFACE, with any underscores
+                changed to dashes).
         """
         if not endpoint:
-            endpoint = self.INTERFACE
+            endpoint = self._default_endpoint
         super().__init__(charm, f"relation-{endpoint}")
         self.charm = charm
         self.endpoint = endpoint
@@ -116,6 +117,10 @@ class EndpointWrapper(Object):
         self.framework.observe(rel_events.relation_broken, self._handle_relation_broken)
         self.framework.observe(charm.on.leader_elected, self._handle_upgrade_or_leader)
         self.framework.observe(charm.on.upgrade_charm, self._handle_upgrade_or_leader)
+
+    @property
+    def _default_endpoint(self):
+        return self.INTERFACE.replace("_", "-")
 
     @property
     def app(self):
