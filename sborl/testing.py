@@ -20,6 +20,9 @@ class MockRemoteRelationMixin:
     def __init__(self, harness):
         """Initialize the mock provider / requirer."""
 
+        self.app_name = f"{self._default_endpoint}-remote"
+        self.unit_name = f"{self.app_name}/0"
+
         class MRRMTestEvents(CharmEvents):
             __name__ = self.app_name
 
@@ -66,16 +69,6 @@ class MockRemoteRelationMixin:
                     setattr(cls, attr, property(prop.func))
                 else:
                     setattr(cls, attr, prop.__wrapped__)
-
-    @property
-    def app_name(self):
-        """The name of the mock app."""
-        return f"{self.INTERFACE}-remote"
-
-    @property
-    def unit_name(self):
-        """The name of the mock unit."""
-        return f"{self.app_name}/0"
 
     @property
     def relation(self):

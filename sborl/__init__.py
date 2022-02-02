@@ -1,6 +1,6 @@
 # Copyright 2022 Canonical Ltd.
 # See LICENSE file for licensing details.
-__version__ = "0.0.7"
+__version__ = "0.0.8"
 
 # flake8: noqa: F401,F402
 
